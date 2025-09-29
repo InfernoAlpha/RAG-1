@@ -75,7 +75,6 @@ graph.add_node("tools",tool_node)
 graph.add_edge(START,"llm")
 graph.add_conditional_edges("llm",tools_condition)
 graph.add_edge("tools","llm")
-#graph.add_edge('tools',"llm")
 #graph.add_edge('llm',END)
 
 agent = graph.compile(checkpointer=checkpointer)
@@ -86,3 +85,4 @@ def retrive_all_threads():
         all_threads.add(checkpoint.config['configurable']['thread_id'])
 
     return list(all_threads)
+
