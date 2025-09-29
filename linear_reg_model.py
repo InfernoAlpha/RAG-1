@@ -28,14 +28,12 @@ class csv_dataset(Dataset):
         enc_colu = encoder.fit_transform(df[colu])
         enc_df = pd.DataFrame(enc_colu,columns=encoder.get_feature_names_out(colu))
 
-        # Only features for feature scaler
         feature_df = pd.concat([enc_df, df[numeric_cols]], axis=1)
         target_df = pd.DataFrame(df['Yield_tons_per_hectare'])
 
         norm_features = scale.fit_transform(feature_df)
         norm_target = target.fit_transform(target_df)
 
-        # Save scalers and encoder
         joblib.dump(encoder,"onehotencoder.pkl")
         joblib.dump(scale,"minmaxscale1.pkl")
         joblib.dump(target,"minmaxscale2.pkl")
