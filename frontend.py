@@ -1,18 +1,19 @@
 import streamlit as st
 from project_4 import agent,retrive_all_threads
-from langchain_core.messages import HumanMessage,AIMessage,ToolMessage
-import uuid
+from langchain_core.messages import HumanMessage,AIMessageChunk,ToolMessageChunk
+import requests
+import json
 
-def gen_thread_id():
-    return uuid.uuid4()
+api_url = "http://127.0.0.1:8000/"
 
 def add_thread(thread_id):
     if thread_id not in st.session_state["chat_thread_ids"]:
         st.session_state["chat_thread_ids"].append(thread_id)
 
 def reset_chat():
-    id = gen_thread_id()
-    st.session_state['thread_id'] = id
+    id = requests.get(api_url + "uuid").json()
+    print(id)
+    st.session_state['thread_id'] = id["uuid"]
     add_thread(st.session_state['thread_id'])
     st.session_state['history'] = []
 
@@ -24,10 +25,10 @@ if "history" not in st.session_state:
     st.session_state['history'] = []
 
 if 'thread_id' not in st.session_state:
-    st.session_state['thread_id'] = gen_thread_id()
+    st.session_state['thread_id'] = requests.get(api_url + "uuid").json()['uuid']
 
 if 'chat_thread_ids' not in st.session_state:
-    st.session_state['chat_thread_ids'] = retrive_all_threads()
+    st.session_state['chat_thread_ids'] = requests.get(api_url + "get_all_threads").json()['threads']
 
 add_thread(st.session_state['thread_id'])
 
@@ -70,9 +71,13 @@ if user_input:
     with st.chat_message("assistant"):
         status_holder = {"box":None}
         def ai_stream():
-            for message_chunk, metadata in agent.stream({"messages":[HumanMessage(content=user_input)]},config=CONFIG,stream_mode="messages"):
-                if isinstance(message_chunk, ToolMessage):
-                    tool_name = getattr(message_chunk, "name", "tool")
+            stream_chunk = requests.post(url= api_url + "prompt",json={"thread_id":st.session_state["thread_id"],"input":user_input,"mode":"stream"},stream=True)
+            print(stream_chunk)
+            for line in stream_chunk.iter_lines():
+                message_chunk = json.loads(line)
+                print(message_chunk)
+                if message_chunk[0]['id'][3] == 'ToolMessage':
+                    tool_name = message_chunk[0]['kwargs']['name']
                     if status_holder["box"] is None:
                         status_holder["box"] = st.status(
                             f"🔧 Using `{tool_name}` …", expanded=True
@@ -84,8 +89,8 @@ if user_input:
                             expanded=True,
                         )
 
-                if isinstance(message_chunk, AIMessage):
-                    yield message_chunk.content
+                if message_chunk[0]['kwargs']['type'] == 'AIMessageChunk':
+                    yield message_chunk[0]['kwargs']['content']
 
         ai_message = st.write_stream(ai_stream())
 

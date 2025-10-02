@@ -36,6 +36,17 @@ class sih_tool_scheme(BaseModel):
 search_tool = DuckDuckGoSearchRun(region = "in-en")
 
 @tool
+def mental_health_advice(message:str):
+    """
+    use this tool when the user is haveing any sucidal thoughts,mental stress,bullying or other types of mental issues 
+    gives a mental health advice based on the given message 
+    """
+    model = ChatOllama(model="medllama2:7b-q5_K_M")
+    promt = PromptTemplate(template="give an empathetic and supportive answer to this {msg} make sure to be understanding and ask about the situation rather than produceing a monotonus response",input_variables=['msg'])
+    chain = promt | model | StrOutputParser()
+    return chain.invoke({"messeges":message})
+
+@tool
 def yield_pred(data:sih_tool_scheme):
     """
     Predict crop yield in tons per hectare given environmental and farming conditions.
@@ -54,12 +65,12 @@ def yield_pred(data:sih_tool_scheme):
         return "continue"
 """
 
-tools  = [search_tool,yield_pred]
+tools  = [search_tool,mental_health_advice,yield_pred]
 tool_node = ToolNode(tools)
 
 def llm_node(state:llm_state)->llm_state:
-    #model = ChatOpenAI()
-    model = ChatOllama(model="gpt-oss:20b",temperature=0.5)
+    model = ChatOpenAI()
+    #model = ChatOllama(model="gpt-oss:20b",temperature=0.5)
     #model = ChatGroq(model="llama-3.1-8b-instant",temperature=0.5)
     model = model.bind_tools(tools)
     response = model.invoke(state['messages'])
@@ -75,6 +86,7 @@ graph.add_node("tools",tool_node)
 graph.add_edge(START,"llm")
 graph.add_conditional_edges("llm",tools_condition)
 graph.add_edge("tools","llm")
+#graph.add_edge('tools',"llm")
 #graph.add_edge('llm',END)
 
 agent = graph.compile(checkpointer=checkpointer)
@@ -83,6 +95,4 @@ def retrive_all_threads():
     all_threads = set()
     for checkpoint in checkpointer.list(None):
         all_threads.add(checkpoint.config['configurable']['thread_id'])
-
     return list(all_threads)
-
