@@ -1,10 +1,8 @@
 import streamlit as st
-from project_4 import agent,retrive_all_threads
-from langchain_core.messages import HumanMessage,AIMessageChunk,ToolMessageChunk
 import requests
 import json
 
-api_url = "http://127.0.0.1:8000/"
+api_url = "http://13.60.76.254:8000/"
 
 def add_thread(thread_id):
     if thread_id not in st.session_state["chat_thread_ids"]:
@@ -12,23 +10,22 @@ def add_thread(thread_id):
 
 def reset_chat():
     id = requests.get(api_url + "uuid").json()
-    print(id)
     st.session_state['thread_id'] = id["uuid"]
     add_thread(st.session_state['thread_id'])
     st.session_state['history'] = []
 
 def load_conv(thread_id):
-    state = agent.get_state(config={'configurable':{"thread_id":thread_id}})
-    return state.values.get('messages',[])
+    state = json.loads(requests.post(url=api_url + "get_state",json={"thread_id":thread_id}).json()["state"])
+    return state
 
 if "history" not in st.session_state:
     st.session_state['history'] = []
 
-if 'thread_id' not in st.session_state:
-    st.session_state['thread_id'] = requests.get(api_url + "uuid").json()['uuid']
-
 if 'chat_thread_ids' not in st.session_state:
     st.session_state['chat_thread_ids'] = requests.get(api_url + "get_all_threads").json()['threads']
+
+if 'thread_id' not in st.session_state:
+    st.session_state['thread_id'] = st.session_state['chat_thread_ids'][-1] if len(st.session_state['chat_thread_ids']) > 0 else []
 
 add_thread(st.session_state['thread_id'])
 
@@ -39,19 +36,20 @@ if st.sidebar.button('New Chat'):
 
 st.sidebar.header('My Conversations')
 
-for thread_id in st.session_state['chat_thread_ids'][::-1]:
-    if st.sidebar.button(str(thread_id)):
+length = len(st.session_state['chat_thread_ids'][::-1])
+for num,thread_id in enumerate(st.session_state['chat_thread_ids'][::-1]):
+    if st.sidebar.button("conversation: "+str(length - num)):
         st.session_state['thread_id'] = thread_id
         messages = load_conv(thread_id)
 
         temp_messages = []
 
         for msg in messages:
-            if isinstance(msg, HumanMessage):
+            if msg["kwargs"]["type"] == "human":
                 role='user'
             else:
                 role='assistant'
-            temp_messages.append({'role': role, 'content': msg.content})
+            temp_messages.append({'role': role, 'content': msg["kwargs"]["content"]})
 
         st.session_state['history'] = temp_messages
 
@@ -72,10 +70,8 @@ if user_input:
         status_holder = {"box":None}
         def ai_stream():
             stream_chunk = requests.post(url= api_url + "prompt",json={"thread_id":st.session_state["thread_id"],"input":user_input,"mode":"stream"},stream=True)
-            print(stream_chunk)
             for line in stream_chunk.iter_lines():
                 message_chunk = json.loads(line)
-                print(message_chunk)
                 if message_chunk[0]['id'][3] == 'ToolMessage':
                     tool_name = message_chunk[0]['kwargs']['name']
                     if status_holder["box"] is None:

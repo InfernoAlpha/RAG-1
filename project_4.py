@@ -15,9 +15,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_groq import ChatGroq
 from sih_tool import predict_crop_yield
 from pydantic import BaseModel,Field
-from dotenv import load_dotenv
-
-load_dotenv()
+import os
 
 class llm_state(TypedDict):
     emotion:str
@@ -51,9 +49,7 @@ def yield_pred(data:sih_tool_scheme):
     """
     Predict crop yield in tons per hectare given environmental and farming conditions.
     """
-    print(data)
     y_pred = predict_crop_yield(data.model_dump())
-    print(y_pred)
     return {'predicted_yield_tons_per_hectare':y_pred}
     
     
@@ -69,8 +65,8 @@ tools  = [search_tool,mental_health_advice,yield_pred]
 tool_node = ToolNode(tools)
 
 def llm_node(state:llm_state)->llm_state:
-    model = ChatOpenAI()
-    #model = ChatOllama(model="gpt-oss:20b",temperature=0.5)
+    model = ChatOpenAI(openai_api_key=os.getenv("OPENAI_API_KEY"))
+    #model = ChatOllama(model="llama3.1:8b",temperature=0)
     #model = ChatGroq(model="llama-3.1-8b-instant",temperature=0.5)
     model = model.bind_tools(tools)
     response = model.invoke(state['messages'])
@@ -86,7 +82,6 @@ graph.add_node("tools",tool_node)
 graph.add_edge(START,"llm")
 graph.add_conditional_edges("llm",tools_condition)
 graph.add_edge("tools","llm")
-#graph.add_edge('tools',"llm")
 #graph.add_edge('llm',END)
 
 agent = graph.compile(checkpointer=checkpointer)

@@ -10,7 +10,6 @@ import torch
 from sklearn.preprocessing import OneHotEncoder,MinMaxScaler
 import numpy as np
 from torch.utils.data import Dataset
-from xgboost import XGBRegressor
 from sklearn.metrics import r2_score
 
 
